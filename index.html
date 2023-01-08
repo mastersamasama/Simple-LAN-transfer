@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Send Box</title>
+
+    <style>
+      body {
+        position: relative; /* for the function bar (position: absolute; bottom: 0;) */
+        background-color: #f5f5f5;
+        box-sizing: border-box;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      }
+
+      form {
+        width: 95%;
+        margin: 20px auto;
+        background-color: #fff;
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+        box-sizing: border-box;
+      }
+
+      form textarea {
+        position: relative;
+        width: 98%;
+        height: 60vh;
+        align-items: center;
+        padding: 10px;
+        margin: 10px 0;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        font-size: large;
+        outline: none;
+      }
+
+      /* 
+        * mobile device optimization to make the textarea
+        * appear in the center of the screen
+      */
+      @media screen and (max-width: 800px) {
+        form textarea {
+          left: -2%;
+        }
+      }
+
+      form textarea:focus {
+        border: 1px solid #000;
+      }
+
+      form #file {
+        display: none;
+      }
+
+      #file-button {
+        display: inline-block;
+        width: 50vw;
+        padding: 10px;
+        margin: 0 0 2vh 0;
+        border: 1px solid #ccc;
+        border-radius: 25px;
+        outline: none;
+        background-color: #ccc;
+        font-size: large;
+        cursor: pointer;
+        text-align: center;
+        font-family: Arial, Helvetica, sans-serif;
+      }
+
+      #file-button:hover {
+        background-color: #eee;
+      }
+
+      #uploaded-file-name {
+        display: inline-block;
+        margin: 0 0 0 5vw;
+        padding: 0;
+        color: #434343;
+        font-size: large;
+        font-family: Arial, Helvetica, sans-serif;
+      }
+
+      form button[type="submit"],
+      form button[type="reset"] {
+        width: 100%;
+        padding: 10px;
+        margin: 10px 0;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        outline: none;
+        background-color: #ccc;
+        font-size: large;
+        cursor: pointer;
+      }
+
+      form button:hover {
+        background-color: #ddd;
+      }
+
+      #function-bar {
+        display: flex;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        height: 80px;
+        padding: 1vh;
+        margin: 0;
+        background-color: #fff;
+        border-top: 1px solid #ccc;
+        align-items: center;
+        box-sizing: border-box;
+      }
+
+      #function-bar #language-select {
+        position: absolute;
+        width: 300px;
+        height: 45px;
+        padding: 0 0 0 20px;
+        margin: 0 10px;
+        border: 1.5px solid #ccc;
+        border-radius: 10px;
+        background-color: #fafafa;
+        font-size: large;
+        cursor: pointer;
+        font-family: Arial, Helvetica, sans-serif;
+        box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05);
+        bottom: 20px;
+        left: 10px;
+        box-sizing: border-box;
+        z-index: 998;
+      }
+
+      #function-bar #language-menu::before {
+        content: "";
+        position: absolute;
+        left: 290px;
+        width: 8px;
+        height: 8px;
+        border: 2px solid #333;
+        border-top: 2px solid transparent;
+        border-right: 2px solid transparent;
+        z-index: 999;
+        bottom: 40px;
+        transform: rotate(-45deg);
+        transition: 0.5s;
+      }
+
+      #function-bar #language-menu.active::before {
+        transform: rotate(135deg);
+        bottom: 32px;
+      }
+
+      #option-holder {
+        display: none;
+        position: absolute;
+        left: 10px;
+        bottom: 70px;
+        width: 300px;
+        padding: 0;
+        margin: 0 10px;
+        background-color: #fff;
+        border: 1px solid #ccc;
+        border-radius: 10px;
+        overflow: hidden;
+        transition: height 0.3s ease;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+        box-sizing: border-box;
+        opacity: 0;
+        transition: 0.2s;
+      }
+
+      #function-bar #language-menu.active #option-holder {
+        opacity: 1;
+      }
+
+      #option-holder:focus {
+        outline: none;
+        border: 1px solid #ccc;
+      }
+
+      #option-holder .option {
+        display: flex;
+        height: 45px;
+        background-color: #fff;
+        padding: 0 0 0 20px;
+        font-size: large;
+        cursor: pointer;
+        font-family: Arial, Helvetica, sans-serif;
+        align-items: center;
+      }
+
+      #option-holder .option:hover {
+        background-color: #666;
+        color: #fff;
+      }
+
+      #comment-wrapper {
+        display: flex;
+        position: fixed;
+        bottom: 5vh;
+        justify-content: center;
+        margin: 0 auto;
+        left: 0;
+        right: 0;
+      }
+
+      #comment-box {
+        background-color: rgba(0, 0, 0, 0.6);
+        color: rgba(240, 240, 240, 1);
+        text-align: center;
+        padding: 4px 10px;
+        margin: 10px 0;
+        border: 1px solid #ccc;
+        border-radius: 30px;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        font-size: large;
+        min-width: 30vw;
+        transition: opacity cubic-bezier(0.4, 0, 0.2, 1) 0.6s;
+      }
+
+      .show-comment-box {
+        display: inline-block;
+        opacity: 1;
+      }
+
+      .hidden-comment-box {
+        opacity: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <form action="/upload" method="post">
+      <textarea name="message"></textarea>
+      <button type="submit" name="submit" class="sstr" data-content="send">
+        Send
+      </button>
+    </form>
+
+    <form action="/file" method="post" enctype="multipart/form-data">
+      <input type="file" name="file" id="file" />
+      <label for="file" id="file-button" class="sstr" data-content="choose-file"
+        >Choose a file</label
+      >
+      <p
+        id="uploaded-file-name"
+        class="sstr default"
+        data-content="no-file-selected"
+        data-default-changed="false"
+      >
+        No file selected
+      </p>
+      <button type="submit" class="sstr" data-content="send">Send</button>
+      <button type="reset" id="reset-button" class="sstr" data-content="remove">
+        Remove File
+      </button>
+    </form>
+    <footer id="function-bar">
+      <div id="language-menu">
+        <input
+          type="text"
+          id="language-select"
+          placeholder="English"
+          readonly
+        />
+        <div id="option-holder"></div>
+      </div>
+    </footer>
+
+    <span id="comment-wrapper">
+      <span class="hidden-comment-box" id="comment-box"></span>
+    </span>
+  </body>
+
+  <script>
+    language = {
+      "en-us": "English",
+      "zh-cn": "简体中文",
+      "zh-tw": "繁體中文",
+      'jp': '日本語',
+      'ko': '한국어',
+    };
+
+    bt = {
+      "en-us": {},
+      "zh-cn": {},
+      "zh-tw": {},
+      'jp': {},
+      'ko': {},
+    };
+
+    enus = bt["en-us"];
+    enus["send"] = "Send";
+    enus["choose-file"] = "Choose a file";
+    enus["remove"] = "Remove file";
+    enus["no-file-selected"] = "No file selected";
+    enus["file-exceed"] = "File size cannot exceed 380MB";
+
+    zhcn = bt["zh-cn"];
+    zhcn["send"] = "发送";
+    zhcn["choose-file"] = "选择文件";
+    zhcn["remove"] = "删除文件";
+    zhcn["no-file-selected"] = "未选择文件";
+    zhcn["file-exceed"] = "文件大小不能超过380MB";
+
+    zhtw = bt["zh-tw"];
+    zhtw["send"] = "發送";
+    zhtw["choose-file"] = "選擇文件";
+    zhtw["remove"] = "刪除文件";
+    zhtw["no-file-selected"] = "未選擇文件";
+    zhtw["file-exceed"] = "文件大小不能超過380MB";
+
+    jp = bt['jp'];
+    jp['send'] = '送信';
+    jp['choose-file'] = 'ファイルを選択';
+    jp['remove'] = 'ファイルを削除';
+    jp['no-file-selected'] = 'ファイルが選択されていません';
+    jp['file-exceed'] = 'ファイルサイズは380MBを超えることはできません';
+
+    ko = bt['ko'];
+    ko['send'] = '보내기';
+    ko['choose-file'] = '파일 선택';
+    ko['remove'] = '파일 삭제';
+    ko['no-file-selected'] = '파일이 선택되지 않았습니다';
+    ko['file-exceed'] = '파일 크기는 380MB를 초과할 수 없습니다';
+  </script>
+
+  <script>
+    const fileInput = document.getElementById("file");
+    const fileButton = document.getElementById("file-button");
+    const uploadedFileName = document.getElementById("uploaded-file-name");
+    const languageSelect = document.getElementById("language-select");
+    const resetButton = document.getElementById("reset-button");
+    const comment_box = document.getElementById("comment-box");
+
+    // show a comment box for 2 seconds
+    // @param {string} content - the content to show in the comment box
+    // @param {number} time - the time to show the comment box in milliseconds
+    function boxComment(content, time = 2000) {
+      comment_box.innerHTML = content;
+      comment_box.className = "show-comment-box";
+      setTimeout(() => {
+        comment_box.className = "hidden-comment-box";
+      }, time);
+    }
+
+    function setString(bt, lang) {
+      const strings = document.querySelectorAll(".sstr");
+      for (let i = 0; i < strings.length; i++) {
+        let dataContent = strings[i].getAttribute("data-content");
+        if (
+          !(
+            strings[i].classList.contains("default") &&
+            strings[i].getAttribute("data-default-changed") === "true"
+          )
+        ) {
+          strings[i].innerHTML = bt[lang][dataContent];
+          console.log(bt[lang][dataContent]);
+        }
+      }
+    }
+
+    // set the name of the uploaded file once it is selected by the user
+    fileInput.addEventListener("change", () => {
+      let file = fileInput.files[0];
+      uploadedFileName.innerHTML = file.name;
+      uploadedFileName.setAttribute("data-default-changed", "true");
+      // check if the file size exceeds 380MB
+      // if so, show a comment box to remind and reset the file input
+      if (file.size > 380 * 1024 * 1024) {
+        boxComment(bt[localStorage.getItem("language")]["file-exceed"]);
+        resetButton.click();
+      }
+    });
+
+    // when user clicks on the reset button, reset the file input
+    resetButton.addEventListener("click", () => {
+      uploadedFileName.innerHTML =
+        bt[localStorage.getItem("language")]["uploaded-file-name"];
+      uploadedFileName.setAttribute("data-default-changed", "false");
+    });
+
+    // List of languages will be shown when user clicks on the language select
+    // user can click on this list to select their preferred language
+    languageSelect.addEventListener("click", () => {
+      const languageMenu = document.getElementById("language-menu");
+      const optionHolder = document.getElementById("option-holder");
+      if (languageMenu.classList.contains("active")) {
+        languageMenu.classList.toggle("active");
+        setTimeout(() => {
+          optionHolder.style.display = "none";
+        }, 300);
+      } else {
+        optionHolder.style.display = "block";
+        setTimeout(() => {
+          languageMenu.classList.toggle("active");
+        }, 2);
+      }
+    });
+
+    // fetch the language list from the language object
+    // and create a list of language options for the user to select
+    function updateLanguageList(language) {
+      for (let i in language) {
+        const option = document.createElement("div");
+        option.classList.add("option");
+        option.innerHTML = language[i];
+        // register a click event listener for each language option
+        // when user clicks on a language option, set the language select placeholder
+        // also set all the strings in the page to the selected language
+        // the language selected will be saved in the local storage
+        option.addEventListener("click", () => {
+          languageSelect.setAttribute("placeholder", language[i]);
+          const languageMenu = document.getElementById("language-menu");
+          localStorage.setItem("language", i);
+          languageMenu.classList.toggle("active");
+          setTimeout(() => {
+            document.getElementById("option-holder").style.display = "none";
+          }, 300);
+          setString(bt, i);
+        });
+        document.getElementById("option-holder").appendChild(option);
+      }
+    }
+    updateLanguageList(language);
+
+    // check if the language is already set in the local storage
+    // update the page strings to the language set in the local storage
+    // if not, set the language to English by default
+    if (localStorage.getItem("language")) {
+      setString(bt, localStorage.getItem("language"));
+      document
+        .getElementById("language-select")
+        .setAttribute(
+          "placeholder",
+          language[localStorage.getItem("language")]
+        );
+    } else {
+      localStorage.setItem("language", "en-us");
+      setString(bt, "en-us");
+    }
+  </script>
+</html>

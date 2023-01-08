@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Data Received</title>
+  </head>
+  <body>
+    <div>
+      <span class="wrapper">
+        <h1 id="received-title" class="sstr" data-content="data-received">
+          Data Received:
+        </h1>
+        <button id="copy_button" class="sstr" data-content="copy">Copy</button>
+      </span>
+      <textarea readonly id="rev_data">[data_text_received]</textarea>
+      <form action="/" method="post">
+        <button type="submit" class="sstr" data-content="back">Back</button>
+      </form>
+    </div>
+
+    <span id="comment-wrapper">
+      <span class="hidden-comment-box" id="comment-box"></span>
+    </span>
+  </body>
+  <style>
+    body {
+      background-color: #f5f5f5;
+      font-family: sans-serif;
+    }
+
+    div {
+      width: 95%;
+      margin: 0 auto;
+      background-color: #fff;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+      box-sizing: border-box;
+    }
+
+    .wrapper {
+      display: flex;
+      justify-content: space-between;
+      margin: 0 auto;
+    }
+
+    #copy_button {
+      display: inline-block;
+      flex: 2;
+      padding: 10px;
+      margin: 10px 0;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      outline: none;
+      background-color: #ccc;
+      font-size: large;
+      cursor: pointer;
+    }
+
+    #copy_button:hover {
+      background-color: #ddd;
+    }
+
+    .wrapper > h1 {
+      flex: 3;
+      padding: 10px;
+      margin: 10px auto;
+      border: 0px solid #ccc;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      font-size: large;
+      outline: none;
+    }
+
+    #rev_data {
+      position: relative;
+      width: 98%;
+      height: 40vh;
+      align-items: center;
+      padding: 10px;
+      margin: 10px 0;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      font-size: large;
+      outline: none;
+      resize: none;
+    }
+
+    @media screen and (max-width: 600px) {
+      #rev_data {
+        left: -2%;
+      }
+    }
+
+    form button {
+      width: 100%;
+      padding: 10px;
+      margin: 10px 0;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      outline: none;
+      background-color: #ccc;
+      font-size: large;
+      cursor: pointer;
+    }
+
+    form button:hover {
+      background-color: #ddd;
+    }
+
+    #comment-wrapper {
+      display: flex;
+      position: fixed;
+      bottom: 5vh;
+      justify-content: center;
+      margin: 0 auto;
+      left: 0;
+      right: 0;
+    }
+
+    #comment-box {
+      background-color: rgba(0, 0, 0, 0.6);
+      color: rgba(240, 240, 240, 1);
+      text-align: center;
+      padding: 4px 10px;
+      margin: 10px 0;
+      border: 1px solid #ccc;
+      border-radius: 30px;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      font-size: large;
+      min-width: 30vw;
+      transition: opacity cubic-bezier(0.4, 0, 0.2, 1) 0.6s;
+    }
+
+    .show-comment-box {
+      display: inline-block;
+      opacity: 1;
+    }
+
+    .hidden-comment-box {
+      opacity: 0;
+    }
+  </style>
+
+  <script>
+    const bt = {
+      "en-us": {
+        "data-received": "Data Received:",
+        copy: "Copy",
+        copied: "Copied to clipboard",
+        failed: "Failed to copy",
+        back: "Back",
+      },
+      "zh-cn": {
+        "data-received": "文字内容：",
+        copy: "复制",
+        copied: "已复制",
+        failed: "复制失败",
+        back: "返回",
+      },
+      "zh-tw": {
+        "data-received": "文字內容：",
+        copy: "複製",
+        copied: "已複製",
+        failed: "複製失敗",
+        back: "返回",
+      },
+      "jp": {
+        "data-received": "文字内容：",
+        copy: "コピー",
+        copied: "コピーしました",
+        failed: "コピーに失敗しました",
+        back: "戻る",
+      },
+      "ko": {
+        "data-received": "문자 내용：",
+        copy: "복사",
+        copied: "복사되었습니다",
+        failed: "복사에 실패했습니다",
+        back: "돌아가기",
+      },
+    };
+  </script>
+
+  <script>
+    const copy_button = document.getElementById("copy_button");
+    const rev_data = document.getElementById("rev_data");
+    const comment_box = document.getElementById("comment-box");
+
+    function setString(bt, lang) {
+      const strings = document.querySelectorAll(".sstr");
+      for (let i = 0; i < strings.length; i++) {
+        let dataContent = strings[i].getAttribute("data-content");
+        if (
+          !(
+            strings[i].classList.contains("default") &&
+            strings[i].getAttribute("data-default-changed") === "true"
+          )
+        ) {
+          strings[i].innerHTML = bt[lang][dataContent];
+        }
+      }
+    }
+
+    if (localStorage.getItem("language")) {
+      setString(bt, localStorage.getItem("language"));
+    } else {
+      localStorage.setItem("language", "en-us");
+      setString(bt, "en-us");
+    }
+
+    // show a comment box for 2 seconds
+    // @param {string} content - the content to show in the comment box
+    // @param {number} time - the time to show the comment box in milliseconds
+    function boxComment(content, time = 2000) {
+      comment_box.innerHTML = content;
+      comment_box.className = "show-comment-box";
+      setTimeout(() => {
+        comment_box.className = "hidden-comment-box";
+      }, time);
+    }
+
+    copy_button.addEventListener("click", () => {
+      rev_data.select();
+      rev_data.setSelectionRange(0, 99999);
+      document.execCommand("copy")
+        ? boxComment(bt[localStorage.getItem("language")]["copied"])
+        : boxComment(bt[localStorage.getItem("language")]["failed"]);
+      // unselect the text
+      window.getSelection().removeAllRanges();
+    });
+  </script>
+</html>
