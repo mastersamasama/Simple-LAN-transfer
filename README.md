@@ -8,7 +8,7 @@
 
 
 
-![shown_index](picture\shown_index.png)
+![shown_index](picture/shown_index.png)
 
 
 
@@ -37,7 +37,7 @@ Server has started.
 
 After that, you can copy the IP and paste it to your favourite browser to start the app:
 
-![paste_url](picture\paste_url.png)
+![paste_url](picture/paste_url.png)
 
 
 
@@ -57,13 +57,13 @@ The procedure underneath shows how to use this app to transfer between PC and mo
 
 ### Text transfer
 
-![text_transfer](picture\text_transfer.gif)
+![text_transfer](picture/text_transfer.gif)
 
 
 
 ### File transfer
 
-![file_transfer](picture\file_transfer.gif)
+![file_transfer](picture/file_transfer.gif)
 
 Here's the file transferred:
 
