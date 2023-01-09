@@ -41,7 +41,7 @@ After that, you can copy the IP and paste it to your favourite browser to start 
 
 
 
-By default, the port 80 will be listened, so you can directly paste your IP to the browser. You can changed the port in [`server.js`]() if the port is already in used.
+By default, the port 80 will be listened, so you can directly paste your IP to the browser. You can changed the port in [`server.js`](./server.js) if the port is already in used.
 
 
 
