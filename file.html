@@ -179,7 +179,7 @@
         back: "返回",
         loading: "加載中...",
       },
-      "jp": {
+      jp: {
         filename: "ファイル名:",
         filesize: "ファイルサイズ:",
         filetype: "ファイルタイプ:",
@@ -189,7 +189,7 @@
         back: "戻る",
         loading: "読み込み中...",
       },
-      "ko": {
+      ko: {
         filename: "파일 이름:",
         filesize: "파일 크기:",
         filetype: "파일 형식:",
@@ -255,10 +255,16 @@
     document.getElementById("filename-value").innerHTML = filename;
     document.getElementById("filesize-value").innerHTML = size;
     document.getElementById("filetype-value").innerHTML = file_type;
-    
-    document.getElementById("filename-value").setAttribute("data-content-changed", "true");
-    document.getElementById("filesize-value").setAttribute("data-content-changed", "true");
-    document.getElementById("filetype-value").setAttribute("data-content-changed", "true");
+
+    document
+      .getElementById("filename-value")
+      .setAttribute("data-content-changed", "true");
+    document
+      .getElementById("filesize-value")
+      .setAttribute("data-content-changed", "true");
+    document
+      .getElementById("filetype-value")
+      .setAttribute("data-content-changed", "true");
 
     if (file_type.startsWith("image")) {
       const pic_wrapper = document.createElement("div");
@@ -268,6 +274,25 @@
       pic.src = url;
       root.appendChild(pic_wrapper);
       pic_wrapper.appendChild(pic);
+    }
+
+    function isAppleMobile() {
+      let userAgent = navigator.userAgent || navigator.vendor || window.opera;
+
+      if (/iPad|iPhone|iPod|Mac/.test(userAgent) && !window.MSStream) {
+        return true;
+      }
+
+      return false;
+    }
+
+    // if the file is an pdf and the user is using apple device
+    if (file_type.startsWith("application/pdf") && isAppleMobile()) {
+      // change the type of pdf to octet-stream
+      download_link.href = download_link.href.replace(
+        "application/pdf",
+        "application/octet-stream"
+      );
     }
   </script>
 </html>
