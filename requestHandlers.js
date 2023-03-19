@@ -4,6 +4,18 @@ const querystring = require("querystring");
 let textReceived = "";
 let fileReceived = "";
 
+let fileBuffer = {
+  fileChunkArray: [],
+  fileName: "",
+  fileType: "notype",
+};
+
+let fileR = {
+  fileChunkArray: [],
+  fileName: "",
+  fileType: "notype",
+};
+
 function start(response) {
   response.writeHead(200, { "Content-Type": "text/html" });
   response.write(htmlf.index());
@@ -18,82 +30,119 @@ function upload(response, postData) {
     return;
   }
   textReceived = querystring.parse(postData).message;
-  console.log("Received text: " + textReceived.slice(0, 1000) + (textReceived.length > 1000 ? "..." : ""));
+  console.log(
+    "Received text: " +
+      textReceived.slice(0, 1000) +
+      (textReceived.length > 1000 ? "..." : "")
+  );
   response.end(htmlf.upload({ text_received: textReceived }));
 }
 
-function file(response, postData) {
-  let i = 0;
-  let fileArray = [];
+function file(response) {
+  response.writeHead(200, { "Content-Type": "text/html" });
+  response.write(htmlf.file());
+  response.end();
+}
 
-  // split the post data into an array of files by the boundary
-  while (true) {
-    bd1 = postData.indexOf("------WebKitFormBoundary", i);
-    bd2 = postData.indexOf("------WebKitFormBoundary", bd1 + 1);
-    if (bd2 === -1) {
-      fileArray.push(postData.slice(bd1, postData.length));
-      break;
-    } else {
-      fileArray.push(postData.slice(bd1, bd2));
-    }
-    i = bd2;
-  }
+function fileUpload(response, postData, request) {
+  // get requset header
+  const header = request.headers;
+  let copyToLocal = false;
 
-  file = {};
-
-  // find the first file in the array
-  for (let i = 0; i < fileArray.length; i++) {
-    if (fileArray[i].indexOf('filename="') !== -1) {
-      fileArray = fileArray[i];
-      break;
-    }
-  }
-
-  // get the filename, filetype, and filedata
-  file.filename = fileArray.slice(
-    fileArray.indexOf('filename="') + 10,
-    fileArray.indexOf('"\r\n', fileArray.indexOf('filename="'))
-  );
-  file.fileType = fileArray.slice(
-    fileArray.indexOf("Content-Type: ") + 14,
-    fileArray.indexOf("\r\n", fileArray.indexOf("Content-Type: "))
-  );
-  file.fileData = fileArray.slice(
-    fileArray.indexOf("\r\n\r\n", fileArray.indexOf(file.fileType)) + 4,
-    fileArray.indexOf("\r\n------")
-  );
-
-  // if there is no file, return the last file received
-  // if there is no last file received further, return a blank file
-  if (postData.indexOf('filename=""') !== -1) {
-    let dataURL = "";
-    if (!fileReceived.filename) {
-      dataURL = "data:notype;base64,=";
-    } else {
-      dataURL = "data:" + fileReceived.fileType + ";base64," + fileReceived.fileData;
-    }
-    response.writeHead(200, { "Content-Type": "text/html;" });
-    response.write(htmlf.file({ url: dataURL, filename: fileReceived.filename }));
+  // if the request is done, save the file into fileR
+  // and reset the fileBuffer
+  if (header?.["done"] === "true") {
+    const msg = JSON.parse(postData);
+    response.writeHead(200, { "Content-Type": "text/json" });
+    // change to utf8 from binary of file name
+    let buf = Buffer.from(msg["file-name"], "binary");
+    fileBuffer.fileName = buf.toString("utf8");
+    fileBuffer.fileType = msg["content-type"] || "application/octet-stream";
+    response.write(
+      JSON.stringify({
+        message: "done",
+      })
+    );
+    fileR = fileBuffer;
+    fileBuffer = {
+      fileChunkArray: [],
+      fileName: "",
+      fileType: "notype",
+    };
     response.end();
+    console.log("file: " + fileR.fileName + " has been received.");
+
+    if (copyToLocal) {
+      const fs = require("fs");
+      const buf = Buffer.from(fileR.fileChunkArray.join(""), "binary");
+      const file = fs.createWriteStream("./" + fileR.fileName);
+      file.write(buf);
+    }
     return;
   }
-  console.log("file: " + file.filename + " has been received.");
 
-  // convert the file data to base64
-  let buffer = new ArrayBuffer(file.fileData.length);
-  let view = new Uint8Array(buffer);
-  for (let i = 0; i < file.fileData.length; i++) {
-    view[i] = file.fileData.charCodeAt(i);
+  let index = Number(header["chunk-index"]);
+  console.log("Received chunk: " + index + " from ip: " + request.socket.remoteAddress);
+  fileBuffer.fileChunkArray[index] = postData;
+  response.writeHead(200, { "Content-Type": "text/json" });
+  response.write(
+    JSON.stringify({
+      message: "received",
+    })
+  );
+  response.end();
+}
+
+function fileDownload(response, postData, request) {
+  function standardResponse(msg, header = {}) {
+    response.writeHead(200, { "Content-Type": "text/json", ...header });
+    response.write(
+      JSON.stringify({
+        message: msg,
+      })
+    );
+    response.end();
   }
-  const buf = Buffer.from(file.fileData, "binary");
-  file.fileData = buf.toString("base64");
-  fileReceived = file;
-  let dataURL = "data:" + file.fileType + ";base64," + file.fileData;
-  response.writeHead(200, { "Content-Type": "text/html" });
-  response.write(htmlf.file({ url: dataURL, filename: file.filename }));
+  let header = request.headers;
+  if (header?.["done"] === "false") {
+    standardResponse({
+      totalChunk: fileR.fileChunkArray.length,
+    });
+    console.log("file: " + fileR.fileName + " has been request.");
+    return;
+  }
+  if (header?.["done"] === "true") {
+    standardResponse({
+      message: "done",
+      "content-type": fileR.fileType,
+      "file-name": fileR.fileName,
+    });
+    console.log("file: " + fileR.fileName + " has been sent.");
+    return;
+  }
+  let index = Number(header["chunk-index"]);
+  if (!fileR.fileChunkArray[index]) {
+    standardResponse("error");
+    return;
+  }
+  response.writeHead(200, {
+    "Content-Type": "application/octet-stream",
+    "Content-Length": fileR.fileChunkArray[index].length,
+    "Piece-Index": index,
+  });
+  // will got an bug that randomly insert some 8-bit data if send the chunk directly
+  let ab = new ArrayBuffer(fileR.fileChunkArray[index].length);
+  let view = new Uint8Array(ab);
+  for (let i = 0; i < fileR.fileChunkArray[index].length; i++) {
+    view[i] = fileR.fileChunkArray[index].charCodeAt(i);
+  }
+  console.log("Send chunk: " + index + " to ip: " + request.socket.remoteAddress);
+  response.write(view);
   response.end();
 }
 
 exports.start = start;
 exports.upload = upload;
 exports.file = file;
+exports.fileUpload = fileUpload;
+exports.fileDownload = fileDownload;

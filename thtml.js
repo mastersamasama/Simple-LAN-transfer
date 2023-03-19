@@ -1,7 +1,5 @@
 const fs = require("fs");
 
-const htmlBody = fs.readFileSync("./index.html", "utf8");
-
 function index(data = {}) {
   let html = fs.readFileSync("./index.html", "utf8");
   for (const key in data) {

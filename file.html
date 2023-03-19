@@ -148,6 +148,183 @@
     </div>
   </body>
   <script>
+    const root = document.getElementById("htmlbody");
+    const downloadLink = document.getElementById("download-link");
+
+    function isAppleMobile() {
+      let userAgent = navigator.userAgent || navigator.vendor || window.opera;
+
+      if (/iPad|iPhone|iPod|Mac/.test(userAgent) && !window.MSStream) {
+        return true;
+      }
+
+      return false;
+    }
+
+    class FileDownloader {
+      constructor(url = "/file/download") {
+        this.contentType = "";
+        this.fileName = "";
+        this.fileBody = [];
+        this.url = url;
+        this.pool = [];
+        this.maxThreads = 8;
+        this.size = 0;
+      }
+
+      async pushPromise(pieceIndex) {
+        // find the index of first null value in pool
+        let index = this.pool.findIndex((p) => p === null);
+        let isNull = true;
+        // if no null value found, push to the end of the pool
+        if (index === -1) {
+          index = this.pool.length;
+          isNull = false;
+        }
+        let p = new Promise((resolve, reject) => {
+          let xhr = fetch(this.url, {
+            method: "GET",
+            headers: {
+              "Chunk-Index": pieceIndex,
+            },
+          }).then(async (response) => {
+            if (!response.ok) {
+              reject(response);
+            } else {
+              resolve({
+                index: index,
+                body: await response.arrayBuffer(),
+                headers: response.headers,
+                pieceIndex: parseInt(response.headers.get("piece-index")),
+              });
+            }
+          });
+        });
+        if (isNull) {
+          this.pool[index] = p;
+        } else {
+          this.pool.push(p);
+        }
+      }
+
+      async download() {
+        let basicInfo = await fetch(this.url, {
+          headers: {
+            done: "false",
+          },
+        });
+        basicInfo = await basicInfo.json();
+        const totalChunks = basicInfo.message.totalChunk;
+
+        // chunck will be received in array buffer
+        // after receive all of it we can convert it to blob
+        for (let i = 0; i < totalChunks; i++) {
+          if (this.pool.length === this.maxThreads) {
+            let fileChunk = await Promise.race(this.pool);
+            let pieceIndex = fileChunk.pieceIndex;
+            if (this.fileBody.length <= pieceIndex) {
+              this.fileBody.length = pieceIndex + 1;
+            }
+            let view = new Uint8Array(fileChunk.body);
+            this.fileBody[pieceIndex] = view;
+            this.size += fileChunk.headers.get("content-length");
+            this.pool[fileChunk.index] = null;
+          }
+          this.pushPromise(i);
+          console.log("requesting: " + i);
+        }
+        let finish = await Promise.all(this.pool);
+        for (let i = 0; i < finish.length; i++) {
+          let fileChunk = finish[i];
+          let pieceIndex = fileChunk.pieceIndex;
+          if (this.fileBody.length <= pieceIndex) {
+            this.fileBody.length = pieceIndex + 1;
+          }
+          let view = new Uint8Array(fileChunk.body);
+          this.fileBody[pieceIndex] = view;
+          this.size += fileChunk.headers.get("content-length");
+          this.pool[fileChunk.index] = null;
+        }
+
+        finish = null;
+
+        let fullInfo = await fetch(this.url, {
+          headers: {
+            done: "true",
+          },
+        });
+        let body = await fullInfo.json();
+        body = body.message;
+        this.contentType = body["content-type"];
+        this.fileName = body["file-name"];
+      }
+
+      // convert array buffer to blob
+      // and make it downloadable
+      bind() {
+        let type = this.contentType;
+        // if the file is an pdf and the user is using apple device
+        if (type.startsWith("application/pdf") && isAppleMobile()) {
+          // change the type of pdf to octet-stream
+          type = "application/octet-stream";
+        }
+
+        let totalLength = 0;
+        for (let i = 0; i < this.fileBody.length; i++) {
+          totalLength += this.fileBody[i].length;
+        }
+
+        let blobarr = [this.fileBody];
+        let blob = new Blob(this.fileBody, {
+          type: type,
+        });
+        console.log(blob);
+        downloadLink.href = URL.createObjectURL(blob);
+        downloadLink.download = this.fileName;
+        let size_unit = ["B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"];
+        let file_size = blob.size;
+        for (; file_size > 1024; file_size /= 1024) {
+          size_unit.shift();
+        }
+        let fileSize = file_size.toFixed(2) + " " + size_unit[0];
+        document.getElementById("filesize-value").innerHTML = fileSize;
+        document.getElementById("filetype-value").innerHTML = this.contentType;
+
+        if (this.contentType === "notype") {
+          downloadLink.className = "not-download";
+          downloadLink.href = "#";
+          document.getElementById("download-button").innerHTML =
+            bt[localStorage.getItem("language")]["download_not_available"];
+          this.fileName =
+            bt[localStorage.getItem("language")]["filename_not_available"];
+          this.size = "0 B";
+        }
+
+        document.getElementById("filename-value").innerHTML = this.fileName;
+
+        document
+          .getElementById("filename-value")
+          .setAttribute("data-content-changed", "true");
+        document
+          .getElementById("filesize-value")
+          .setAttribute("data-content-changed", "true");
+        document
+          .getElementById("filetype-value")
+          .setAttribute("data-content-changed", "true");
+
+        if (this.contentType.startsWith("image")) {
+          const pic_wrapper = document.createElement("div");
+          pic_wrapper.id = "uploaded_image_wrapper";
+          const pic = document.createElement("img");
+          const url = URL.createObjectURL(blob);
+          pic.id = "uploaded_image";
+          pic.src = url;
+          root.appendChild(pic_wrapper);
+          pic_wrapper.appendChild(pic);
+        }
+      }
+    }
+
     let bt = {
       "en-us": {
         filename: "Filename:",
@@ -222,77 +399,10 @@
       localStorage.setItem("language", "en-us");
       setString(bt, "en-us");
     }
-  </script>
 
-  <script>
-    const root = document.getElementById("htmlbody");
-    const download_link = document.getElementById("download-link");
-
-    const url = "[data_url]";
-    let filename = "[data_filename]";
-
-    const file_type = url.slice(5, url.indexOf(";"));
-
-    let file_size = (url.slice(url.indexOf("base64,") + 7).length * 3) / 4;
-    let size_unit = ["B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"];
-    for (; file_size > 1024; file_size /= 1024) {
-      size_unit.shift();
-    }
-    let size = file_size.toFixed(2) + " " + size_unit[0];
-
-    if (file_type === "notype") {
-      download_link.className = "not-download";
-      download_link.href = "#";
-      document.getElementById("download-button").innerHTML =
-        bt[localStorage.getItem("language")]["download_not_available"];
-      filename = bt[localStorage.getItem("language")]["filename_not_available"];
-      size = "0 B";
-    }
-
-    download_link.href = url;
-    download_link.download = filename;
-
-    document.getElementById("filename-value").innerHTML = filename;
-    document.getElementById("filesize-value").innerHTML = size;
-    document.getElementById("filetype-value").innerHTML = file_type;
-
-    document
-      .getElementById("filename-value")
-      .setAttribute("data-content-changed", "true");
-    document
-      .getElementById("filesize-value")
-      .setAttribute("data-content-changed", "true");
-    document
-      .getElementById("filetype-value")
-      .setAttribute("data-content-changed", "true");
-
-    if (file_type.startsWith("image")) {
-      const pic_wrapper = document.createElement("div");
-      pic_wrapper.id = "uploaded_image_wrapper";
-      const pic = document.createElement("img");
-      pic.id = "uploaded_image";
-      pic.src = url;
-      root.appendChild(pic_wrapper);
-      pic_wrapper.appendChild(pic);
-    }
-
-    function isAppleMobile() {
-      let userAgent = navigator.userAgent || navigator.vendor || window.opera;
-
-      if (/iPad|iPhone|iPod|Mac/.test(userAgent) && !window.MSStream) {
-        return true;
-      }
-
-      return false;
-    }
-
-    // if the file is an pdf and the user is using apple device
-    if (file_type.startsWith("application/pdf") && isAppleMobile()) {
-      // change the type of pdf to octet-stream
-      download_link.href = download_link.href.replace(
-        "application/pdf",
-        "application/octet-stream"
-      );
-    }
+    let fileDownload = new FileDownloader();
+    fileDownload.download().then(() => {
+      fileDownload.bind();
+    });
   </script>
 </html>
