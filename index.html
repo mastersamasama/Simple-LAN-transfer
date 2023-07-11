@@ -231,6 +231,10 @@
       .hidden-comment-box {
         opacity: 0;
       }
+
+      .progressbar {
+        transition: cubic-bezier(0.4, 0, 0.2, 1) 0.2s;
+      }
     </style>
   </head>
   <body>
@@ -259,6 +263,7 @@
         class="sstr"
         id="file-submit-button"
         data-content="send"
+        style="background: #ccc"
       >
         Send
       </button>
@@ -284,59 +289,6 @@
   </body>
 
   <script>
-    language = {
-      "en-us": "English",
-      "zh-cn": "简体中文",
-      "zh-tw": "繁體中文",
-      jp: "日本語",
-      ko: "한국어",
-    };
-
-    bt = {
-      "en-us": {},
-      "zh-cn": {},
-      "zh-tw": {},
-      jp: {},
-      ko: {},
-    };
-
-    enus = bt["en-us"];
-    enus["send"] = "Send";
-    enus["choose-file"] = "Choose a file";
-    enus["remove"] = "Remove file";
-    enus["no-file-selected"] = "No file selected";
-    enus["file-exceed"] = "File size cannot exceed 2GB";
-
-    zhcn = bt["zh-cn"];
-    zhcn["send"] = "发送";
-    zhcn["choose-file"] = "选择文件";
-    zhcn["remove"] = "删除文件";
-    zhcn["no-file-selected"] = "未选择文件";
-    zhcn["file-exceed"] = "文件大小不能超过2GB";
-
-    zhtw = bt["zh-tw"];
-    zhtw["send"] = "發送";
-    zhtw["choose-file"] = "選擇文件";
-    zhtw["remove"] = "刪除文件";
-    zhtw["no-file-selected"] = "未選擇文件";
-    zhtw["file-exceed"] = "文件大小不能超過2GB";
-
-    jp = bt["jp"];
-    jp["send"] = "送信";
-    jp["choose-file"] = "ファイルを選択";
-    jp["remove"] = "ファイルを削除";
-    jp["no-file-selected"] = "ファイルが選択されていません";
-    jp["file-exceed"] = "ファイルサイズは2GBを超えることはできません";
-
-    ko = bt["ko"];
-    ko["send"] = "보내기";
-    ko["choose-file"] = "파일 선택";
-    ko["remove"] = "파일 삭제";
-    ko["no-file-selected"] = "파일이 선택되지 않았습니다";
-    ko["file-exceed"] = "파일 크기는 2GB를 초과할 수 없습니다";
-  </script>
-
-  <script>
     const fileInput = document.getElementById("file");
     const fileButton = document.getElementById("file-button");
     const uploadedFileName = document.getElementById("uploaded-file-name");
@@ -345,7 +297,7 @@
     const comment_box = document.getElementById("comment-box");
     const fileSubmitButton = document.getElementById("file-submit-button");
 
-    const maxFileSize = 2 * 1024 * 1024 * 1024;
+    const maxFileSize = [data_max_file_size];
 
     class CommentBox {
       // @param {HTMLElement} ele - the comment box element
@@ -367,6 +319,45 @@
 
     const cmt = new CommentBox(comment_box);
 
+    /** @param {HTMLElement} htmlElement - the progress bar element
+     * background will be primary color if progress is 0
+     * and progressively change to secondary color as progress increases
+     */
+    class ProgressBar {
+      constructor(htmlElement) {
+        this.bar = htmlElement;
+        this.bar.classList.add("progressbar");
+        this.pcolor = htmlElement.style.backgroundColor;
+        this.scolor = "#aaa";
+        this.total = 0;
+        this.progress = 0;
+      }
+
+      setSecondaryColor(color) {
+        this.scolor = color;
+      }
+
+      setTotal(total) {
+        this.total = total;
+      }
+
+      setPrimaryColor(color) {
+        this.pcolor = color;
+      }
+
+      setProgress(progress) {
+        this.progress = progress;
+        let percent = Math.floor((progress / this.total) * 100);
+        this.updateBar(percent);
+      }
+
+      updateBar(percent) {
+        this.bar.style.background = `linear-gradient(to right, ${this.scolor} ${percent}%, ${this.pcolor} ${percent}%, ${this.pcolor} 100%)`;
+      }
+    }
+
+    const pb = new ProgressBar(fileSubmitButton);
+
     class FileUploader {
       constructor(fileInput, url = "/file/upload") {
         this.fileInput = fileInput;
@@ -375,7 +366,7 @@
         this.fileName = fileInput.files[0].name;
         this.url = url;
         this.pool = [];
-        this.chunkSize = 1024 * 1024 * 32;
+        this.chunkSize = 1024 * 1024 * 16;
         this.maxThreads = 8;
       }
 
@@ -388,6 +379,7 @@
           index = this.pool.length;
           isNull = false;
         }
+
         let p = new Promise((resolve, reject) => {
           let xhr = fetch(this.url, {
             method: "POST",
@@ -399,6 +391,7 @@
             if (!response.ok) {
               reject(response);
             } else {
+              pb.setProgress(pb.progress + fileChunck.byteLength);
               resolve(index);
             }
           });
@@ -413,20 +406,23 @@
       async upload() {
         let file = this.fileInput.files[0];
         let reader = new FileReader();
-        reader.readAsArrayBuffer(file);
-        let e = await new Promise((resolve, reject) => {
-          reader.onload = (e) => {
-            // for large files, it takes long time to read so limited to 2GB
-            resolve(e);
-          };
-        });
-        let arrayBuffer = e.target.result;
-        let array = new Uint8Array(arrayBuffer);
         let offset = 0;
         let chunk = null;
         let i = 0;
-        while (offset < array.length) {
-          chunk = array.subarray(offset, offset + this.chunkSize);
+        console.log(file.size);
+        pb.setTotal(file.size);
+        // read file by chunk
+        while (offset < file.size) {
+          let e = await new Promise((resolve, reject) => {
+            reader.onload = (e) => {
+              console.log("enter loop, offset: " + offset + " i: " + i);
+              const arrayBuffer = e.target.result;
+              resolve(e);
+            };
+            const blob = file.slice(offset, offset + this.chunkSize);
+            reader.readAsArrayBuffer(blob);
+          });
+          chunk = e.target.result;
           this.pushPromise(chunk, i++);
           offset += this.chunkSize;
           if (this.pool.length === this.maxThreads) {
@@ -434,11 +430,13 @@
             this.pool[index] = null;
           }
         }
+        // wait for all promises to finish
         await Promise.all(this.pool);
         let endBody = JSON.stringify({
           "Content-Type": this.contentType,
           "File-Name": this.fileName,
         });
+        // send a request to tell the server that the upload is done
         await fetch(this.url, {
           method: "POST",
           headers: {
@@ -449,23 +447,6 @@
             "file-name": this.fileName,
           }),
         });
-      }
-    }
-
-    class progressBar {
-      constructor(htmlElement) {
-        this.bar = htmlElement;
-        this.length = 0;
-        this.progress = 0;
-        updateWidth();
-      }
-
-      updateWidth() {
-        this.bar.style.width = Math.ceil(this.progress / this.length) + "%";
-      }
-
-      setProgress(progress) {
-        this.bar.style.width = progress + "%";
       }
     }
 
@@ -531,12 +512,11 @@
 
     fileSubmitButton.addEventListener("click", async (e) => {
       e.preventDefault();
-      if (fileInput.files.length === 0) {
-        window.location.href = "/file";
-        return;
+      if (fileInput.files.length > 0) {
+        let uploader = new FileUploader(fileInput);
+        await uploader.upload();
       }
-      let uploader = new FileUploader(fileInput);
-      await uploader.upload();
+      pb.setProgress(0);
       window.location.href = "/file";
     });
 
@@ -564,6 +544,75 @@
         document.getElementById("option-holder").appendChild(option);
       }
     }
+
+    function sizeLimitedStr() {
+      let unit = ["B", "KB", "MB", "GB", "TB"];
+      let size = maxFileSize;
+      for (let i = 0; i < unit.length; i++) {
+        if (size < 1024) {
+          // round to 2 decimal places
+          size = Math.round((size + Number.EPSILON) * 100) / 100;
+          return size + unit[i];
+        }
+        size /= 1024;
+      }
+    }
+  </script>
+
+  <script>
+    language = {
+      "en-us": "English",
+      "zh-cn": "简体中文",
+      "zh-tw": "繁體中文",
+      jp: "日本語",
+      ko: "한국어",
+    };
+
+    bt = {
+      "en-us": {},
+      "zh-cn": {},
+      "zh-tw": {},
+      jp: {},
+      ko: {},
+    };
+
+    enus = bt["en-us"];
+    enus["send"] = "Send";
+    enus["choose-file"] = "Choose a file";
+    enus["remove"] = "Remove file";
+    enus["no-file-selected"] = "No file selected";
+    enus["file-exceed"] = "File size cannot exceed " + sizeLimitedStr();
+
+    zhcn = bt["zh-cn"];
+    zhcn["send"] = "发送";
+    zhcn["choose-file"] = "选择文件";
+    zhcn["remove"] = "删除文件";
+    zhcn["no-file-selected"] = "未选择文件";
+    zhcn["file-exceed"] = "文件大小不能超过" + sizeLimitedStr();
+
+    zhtw = bt["zh-tw"];
+    zhtw["send"] = "發送";
+    zhtw["choose-file"] = "選擇文件";
+    zhtw["remove"] = "刪除文件";
+    zhtw["no-file-selected"] = "未選擇文件";
+    zhtw["file-exceed"] = "文件大小不能超過" + sizeLimitedStr();
+
+    jp = bt["jp"];
+    jp["send"] = "送信";
+    jp["choose-file"] = "ファイルを選択";
+    jp["remove"] = "ファイルを削除";
+    jp["no-file-selected"] = "ファイルが選択されていません";
+    jp["file-exceed"] =
+      "ファイルサイズは" + sizeLimitedStr() + "を超えることはできません";
+
+    ko = bt["ko"];
+    ko["send"] = "보내기";
+    ko["choose-file"] = "파일 선택";
+    ko["remove"] = "파일 삭제";
+    ko["no-file-selected"] = "파일이 선택되지 않았습니다";
+    ko["file-exceed"] =
+      "파일 크기는 " + sizeLimitedStr() + "을 초과 할 수 없습니다";
+
     updateLanguageList(language);
 
     // check if the language is already set in the local storage

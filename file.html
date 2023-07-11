@@ -91,6 +91,10 @@
         max-width: 80vw;
         margin: 0 auto;
       }
+
+      .progressbar {
+        transition: cubic-bezier(0.4, 0, 0.2, 1) 0.2s;
+      }
     </style>
   </head>
   <body>
@@ -138,7 +142,12 @@
         </div>
       </div>
       <a href="#" id="download-link" class="download" download>
-        <button id="download-button" class="sstr" data-content="download">
+        <button
+          id="download-button"
+          class="sstr"
+          data-content="download"
+          style="background: #ccc"
+        >
           Download
         </button>
       </a>
@@ -160,6 +169,49 @@
 
       return false;
     }
+
+    /** @param {HTMLElement} htmlElement - the progress bar element
+     * background will be primary color if progress is 0
+     * and progressively change to secondary color as progress increases
+     */
+    class ProgressBar {
+      constructor(htmlElement) {
+        this.bar = htmlElement;
+        this.bar.classList.add("progressbar");
+        this.pcolor = htmlElement.style.backgroundColor;
+        this.scolor = "#aaa";
+        this.total = 0;
+        this.progress = 0;
+      }
+
+      setSecondaryColor(color) {
+        this.scolor = color;
+      }
+
+      setTotal(total) {
+        this.total = total;
+      }
+
+      setPrimaryColor(color) {
+        this.pcolor = color;
+      }
+
+      setProgress(progress) {
+        this.progress = progress;
+        let percent = Math.floor((progress / this.total) * 100);
+        this.updateBar(percent);
+      }
+
+      updateBar(percent) {
+        this.bar.style.background = `linear-gradient(to right, ${this.scolor} ${percent}%, ${this.pcolor} ${percent}%, ${this.pcolor} 100%)`;
+      }
+    }
+
+    const pb = new ProgressBar(document.getElementById("download-button"));
+    let temp = pb.scolor;
+    pb.setSecondaryColor(pb.pcolor);
+    pb.setPrimaryColor(temp);
+    temp = null;
 
     class FileDownloader {
       constructor(url = "/file/download") {
@@ -197,6 +249,7 @@
                 headers: response.headers,
                 pieceIndex: parseInt(response.headers.get("piece-index")),
               });
+              pb.setProgress(pb.progress + 1);
             }
           });
         });
@@ -215,6 +268,9 @@
         });
         basicInfo = await basicInfo.json();
         const totalChunks = basicInfo.message.totalChunk;
+        const totalSize = basicInfo.message.totalSize;
+
+        pb.setTotal(totalChunks);
 
         // chunck will be received in array buffer
         // after receive all of it we can convert it to blob
@@ -292,6 +348,7 @@
 
         if (this.contentType === "notype") {
           downloadLink.className = "not-download";
+          document.getElementById("download-button").style.background = "#555";
           downloadLink.href = "#";
           document.getElementById("download-button").innerHTML =
             bt[localStorage.getItem("language")]["download_not_available"];
