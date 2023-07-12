@@ -47,6 +47,11 @@
         }
       }
 
+      form.highlight {
+        box-shadow: 0 0 10px 5px rgba(0, 0, 0, 0.5);
+        border: 2px dash #000;
+      }
+
       form textarea:focus {
         border: 1px solid #000;
       }
@@ -245,7 +250,7 @@
       </button>
     </form>
 
-    <form action="/file" method="post" enctype="multipart/form-data">
+    <form action="/file" method="post" enctype="multipart/form-data" id="drop-area">
       <input type="file" name="file" id="file" />
       <label for="file" id="file-button" class="sstr" data-content="choose-file"
         >Choose a file</label
@@ -357,6 +362,42 @@
     }
 
     const pb = new ProgressBar(fileSubmitButton);
+
+    class dropArea {
+      constructor(ele, fileHolder) {
+        this.dropArea = ele;
+        this.fileInput = fileHolder;
+      }
+
+      activateDropArea() {
+        this.dropArea.addEventListener("dragenter", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          this.dropArea.classList.add("highlight");
+        });
+        this.dropArea.addEventListener("dragleave", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          this.dropArea.classList.remove("highlight");
+        });
+        this.dropArea.addEventListener("dragover", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          this.dropArea.classList.add("highlight");
+        });
+        this.dropArea.addEventListener("drop", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          this.dropArea.classList.remove("highlight");
+          this.fileInput.files = e.dataTransfer.files;
+          // trigger the change event
+          this.fileInput.dispatchEvent(new Event("change"));
+        });
+      }
+    }
+
+    const droparea = new dropArea(document.getElementById("drop-area"), fileInput);
+    droparea.activateDropArea();
 
     class FileUploader {
       constructor(fileInput, url = "/file/upload") {
