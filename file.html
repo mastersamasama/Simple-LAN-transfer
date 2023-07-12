@@ -182,6 +182,8 @@
         this.scolor = "#aaa";
         this.total = 0;
         this.progress = 0;
+        this.hoverColor = "#ddd";
+        this.recoverBar();
       }
 
       setSecondaryColor(color) {
@@ -204,6 +206,19 @@
 
       updateBar(percent) {
         this.bar.style.background = `linear-gradient(to right, ${this.scolor} ${percent}%, ${this.pcolor} ${percent}%, ${this.pcolor} 100%)`;
+      }
+
+      setHoverColor(color) {
+        this.hoverColor = color;
+      }
+
+      recoverBar() {
+        this.bar.addEventListener("mouseover", () => {
+          this.bar.style.background = this.hoverColor;
+        });
+        this.bar.addEventListener("mouseout", () => {
+          this.bar.style.background = this.scolor;
+        });
       }
     }
 
@@ -304,7 +319,6 @@
 
         finish = null;
 
-        // wait the server to finish message
         let fullInfo = await fetch(this.url, {
           headers: {
             done: "true",
@@ -340,7 +354,7 @@
         downloadLink.download = this.fileName;
         let size_unit = ["B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"];
         let file_size = blob.size;
-        for (; file_size > 1024; file_size /= 1024) {
+        for (; file_size >= 1024; file_size /= 1024) {
           size_unit.shift();
         }
         let fileSize = file_size.toFixed(2) + " " + size_unit[0];
