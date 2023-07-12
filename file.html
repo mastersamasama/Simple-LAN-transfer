@@ -304,6 +304,7 @@
 
         finish = null;
 
+        // wait the server to finish message
         let fullInfo = await fetch(this.url, {
           headers: {
             done: "true",

@@ -18,8 +18,21 @@ let fileR = {
 
 function start(response) {
   response.writeHead(200, { "Content-Type": "text/html" });
-  response.write(htmlf.index());
+  response.write(htmlf.index({
+    max_file_size: getMaxFileSize(),
+  }));
   response.end();
+}
+
+function getMaxFileSize(factor = 0.6) {
+  const v8 = require("v8");
+
+  const heapStats = v8.getHeapStatistics();
+  const maxHeapSize = heapStats.heap_size_limit;
+
+  console.log("Max Heap Size: " + Math.floor(maxHeapSize * factor, 1));
+
+  return Math.floor(maxHeapSize * factor, 1);
 }
 
 function upload(response, postData) {
@@ -82,7 +95,9 @@ function fileUpload(response, postData, request) {
   }
 
   let index = Number(header["chunk-index"]);
-  console.log("Received chunk: " + index + " from ip: " + request.socket.remoteAddress);
+  console.log(
+    "Received chunk: " + index + " from ip: " + request.socket.remoteAddress
+  );
   fileBuffer.fileChunkArray[index] = postData;
   response.writeHead(200, { "Content-Type": "text/json" });
   response.write(
@@ -136,7 +151,9 @@ function fileDownload(response, postData, request) {
   for (let i = 0; i < fileR.fileChunkArray[index].length; i++) {
     view[i] = fileR.fileChunkArray[index].charCodeAt(i);
   }
-  console.log("Send chunk: " + index + " to ip: " + request.socket.remoteAddress);
+  console.log(
+    "Send chunk: " + index + " to ip: " + request.socket.remoteAddress
+  );
   response.write(view);
   response.end();
 }
